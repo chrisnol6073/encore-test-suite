@@ -1,11 +1,11 @@
-userName: YOUR_USERNAME
-accessKey: YOUR_ACCESS_KEY
+userName: ${BROWSERSTACK_USERNAME}
+accessKey: ${BROWSERSTACK_ACCESS_KEY}
 framework: python
-app: YOUR_APP_ID
+app: bs://7b17a1637e3811037c275d3c169975636e20b207
 platforms:
   - platformName: Android
-    deviceName: YOUR_DEVICE_NAME
-    platformVersion: YOUR_PLATFORM_VERSION
+    deviceName: Samsung Galaxy S23
+    platformVersion: "13.0"
 browserstackLocal: false
 buildName: Encore Hackathon
 projectName: Encore Hackathon
