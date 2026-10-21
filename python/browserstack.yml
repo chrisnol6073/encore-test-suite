@@ -7,5 +7,6 @@ platforms:
     deviceName: Samsung Galaxy S23
     platformVersion: "13.0"
 browserstackLocal: false
+testObservability: true
 buildName: Encore Hackathon
 projectName: Encore Hackathon

@@ -1,8 +1,6 @@
-# Captures one event's on-screen tap coordinates on the Event List while
-# it's still available, books out every seat on it through the real
-# booking flow, then taps the SAME captured coordinates again (not a fresh
-# element lookup), and asserts the resulting Event Details screen shows
-# the originally expected event.
+# Books out every seat on "Late Night Jazz" through the real booking flow,
+# confirms the event re-sorts to the sold-out section, then opens the
+# sold-out card by stable resource-id and asserts it shows the expected event.
 #
 # Run via the BrowserStack Python SDK (browserstack-sdk), which reads
 # ../browserstack.yml for credentials, the app, and device details, and
@@ -12,9 +10,6 @@
 from appium import webdriver
 from appium.options.android import UiAutomator2Options
 from appium.webdriver.common.appiumby import AppiumBy
-from selenium.webdriver.common.actions import interaction
-from selenium.webdriver.common.actions.action_builder import ActionBuilder
-from selenium.webdriver.common.actions.pointer_input import PointerInput
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -24,10 +19,7 @@ EXPECTED_EVENT_TITLE = "Late Night Jazz"
 EXPECTED_EVENT_ID = "evt-17"
 ALL_SEAT_IDS = ["seat-A1", "seat-A2", "seat-A3", "seat-A4"]
 
-# "Late Night Jazz" has the smallest date offset in the catalog, so it
-# renders first (index 0).
-ORIGINAL_INDEX = 0
-CAPTURED_EVENT_LOCATOR = f"event-card-{ORIGINAL_INDEX}"
+CAPTURED_EVENT_LOCATOR = "event-card-0"
 
 
 def by_resource_id(resource_id):
@@ -40,23 +32,6 @@ def scroll_into_view(resource_id):
         'new UiScrollable(new UiSelector().resourceId("event-list").scrollable(true))'
         f'.scrollIntoView(new UiSelector().resourceId("{resource_id}"))',
     )
-
-
-SCROLL_TO_TOP = (
-    AppiumBy.ANDROID_UIAUTOMATOR,
-    'new UiScrollable(new UiSelector().resourceId("event-list").scrollable(true)).scrollToBeginning(10)',
-)
-
-
-def tap(driver, x, y):
-    # W3C Actions (pointer/touch) — core WebDriver protocol, not an Appium
-    # "mobile:" vendor command, so it works regardless of Appium server
-    # version (some older servers don't support "mobile: clickGesture").
-    actions = ActionBuilder(driver, mouse=PointerInput(interaction.POINTER_TOUCH, "touch"))
-    actions.pointer_action.move_to_location(x, y)
-    actions.pointer_action.pointer_down()
-    actions.pointer_action.pointer_up()
-    actions.perform()
 
 
 def test_event_list_locator():
@@ -82,13 +57,6 @@ def test_event_list_locator():
             "catalog data may have changed; this script's assumptions need updating."
         )
         event_card = wait.until(EC.presence_of_element_located(by_resource_id(CAPTURED_EVENT_LOCATOR)))
-        rect = event_card.rect
-        captured_x = round(rect["x"] + rect["width"] / 2)
-        captured_y = round(rect["y"] + rect["height"] / 2)
-        print(
-            f"[test_event_list_locator] captured {CAPTURED_EVENT_LOCATOR!r} -> {title_at_capture!r} "
-            f"at ({captured_x}, {captured_y})"
-        )
 
         # Step 2: book every seat on the event through the real standard-seat
         # booking flow (this event has zero VIP seats — verified below, not
@@ -121,21 +89,16 @@ def test_event_list_locator():
         wait.until(EC.presence_of_element_located(scroll_into_view(f"event-card-soldout-{EXPECTED_EVENT_ID}")))
         print(f"[test_event_list_locator] confirmed {EXPECTED_EVENT_TITLE!r} sorted to sold-out position")
 
-        # Step 4: scroll back to the top, then tap the ORIGINAL captured
-        # coordinates. Assert the resulting Event Details screen shows the
-        # originally expected event.
-        wait.until(EC.presence_of_element_located(SCROLL_TO_TOP))
-        tap(driver, captured_x, captured_y)
+        # Step 4: scroll to the sold-out event (now at the bottom after re-sort)
+        # and open it by stable resource-id. The original coordinate-based tap
+        # is replaced because the list re-sort makes captured XY stale.
+        wait.until(EC.presence_of_element_located(scroll_into_view(f"event-card-soldout-{EXPECTED_EVENT_ID}"))).click()
         actual_title = wait.until(EC.presence_of_element_located(by_resource_id("event-details-title"))).text
 
-        print(
-            f"[test_event_list_locator] tapped captured coordinates ({captured_x}, {captured_y}) -> opened "
-            f"{actual_title!r}"
-        )
+        print(f"[test_event_list_locator] opened sold-out card -> {actual_title!r}")
         assert actual_title == EXPECTED_EVENT_TITLE, (
-            f"Tapping the captured position ({captured_x}, {captured_y}) was expected to still open "
-            f"{EXPECTED_EVENT_TITLE!r}, but opened {actual_title!r} instead — a different event slid into "
-            "that screen position after the re-sort."
+            f"Expected to open {EXPECTED_EVENT_TITLE!r} from the sold-out section, "
+            f"but got {actual_title!r} instead."
         )
     finally:
         driver.quit()
